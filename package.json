@@ -5,9 +5,12 @@
   "license": "MIT",
   "author": "Dr. Carsten Leue",
   "main": "index.js",
+  "bin": {
+    "cbt": "bundle.js"
+  },
   "scripts": {
-    "build": "ng-packagr -p package.json",
-    "build:cli": "webpack",
+    "build": "npm-run-all build:bundle build:prod",
+    "build:bundle": "ng-packagr -p package.json",
     "build:dev": "webpack --config webpack.dev.config.js",
     "build:prod": "webpack --config webpack.prod.config.js",
     "start": "ts-node index.ts"
@@ -25,6 +28,7 @@
     "graceful-fs": "^4.2.4",
     "ignore": "^5.1.8",
     "ng-packagr": "^10.1.0",
+    "npm-run-all": "^4.1.5",
     "rxjs": "^6.6.2",
     "ts-loader": "^8.0.3",
     "ts-node": "^9.0.0",
@@ -43,8 +47,9 @@
     }
   },
   "peerDeependencies": {
-    "fs-extra": "^9.0.1",
-    "ignore": "^5.1.8",
-    "rxjs": "^6.6.2"
+    "fs-extra": "^9",
+    "ignore": "^5",
+    "rxjs": "^6",
+    "graceful-fs": "^4"
   }
 }

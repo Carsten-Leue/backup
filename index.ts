@@ -11,7 +11,7 @@ import { join } from 'path';
 const program = new Command();
 program
   .version(version)
-  .name("yab")
+  .name("cbt")
   .arguments("<source> <target>")
   .action((src: string, dst: string) => {
     // sync result
