@@ -8,27 +8,25 @@ import { ignoreElements, map, takeUntil } from "rxjs/operators";
 import { version } from "../package.json";
 import { sync } from "./sync";
 
-export function run() {
-  // exectue
-  const program = new Command();
-  program
-    .version(version)
-    .name("cbt")
-    .arguments("<source> <target>")
-    .action((src: string, dst: string) => {
-      // sync result
-      const { file$, stdout$, stderr$ } = sync(src, dst);
-      // attach
-      const out$ = stdout$.pipe(map((line) => console.log(grey(...line))));
-      const err$ = stderr$.pipe(map((line) => console.error(red(...line))));
-      const line$ = file$.pipe(
-        map((line) => console.log(green(join(...line)))),
-        ignoreElements()
-      );
-      // start debugging
-      const done$ = concat(line$, of(true));
-      // merge everything
-      return merge(out$, err$).pipe(takeUntil(done$)).toPromise();
-    })
-    .parse(argv);
-}
+// exectue
+const program = new Command();
+program
+  .version(version)
+  .name("cbt")
+  .arguments("<source> <target>")
+  .action((src: string, dst: string) => {
+    // sync result
+    const { file$, stdout$, stderr$ } = sync(src, dst);
+    // attach
+    const out$ = stdout$.pipe(map((line) => console.log(grey(...line))));
+    const err$ = stderr$.pipe(map((line) => console.error(red(...line))));
+    const line$ = file$.pipe(
+      map((line) => console.log(green(join(...line)))),
+      ignoreElements()
+    );
+    // start debugging
+    const done$ = concat(line$, of(true));
+    // merge everything
+    return merge(out$, err$).pipe(takeUntil(done$)).toPromise();
+  })
+  .parse(argv);

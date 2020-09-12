@@ -6,7 +6,7 @@
   "license": "MIT",
   "author": "Dr. Carsten Leue",
   "bin": {
-    "cbt": "index.js"
+    "cbt": "bundle.js"
   },
   "scripts": {
     "build": "npm-run-all build:bundle build:prod build:copy",
@@ -15,7 +15,7 @@
     "build:dev": "webpack --config webpack.dev.config.js",
     "build:prod": "webpack --config webpack.prod.config.js",
     "clean": "rimraf ./dist",
-    "start": "ts-node index.ts"
+    "start": "ts-node src/bundle.ts"
   },
   "devDependencies": {
     "@angular/compiler": "^10",
