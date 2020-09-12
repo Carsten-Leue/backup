@@ -1,0 +1,50 @@
+{
+  "name": "backup",
+  "version": "1.0.0",
+  "repository": "https://github.com/CarstenLeue/backup.git",
+  "license": "MIT",
+  "author": "Dr. Carsten Leue",
+  "main": "index.js",
+  "scripts": {
+    "build": "ng-packagr -p package.json",
+    "build:cli": "webpack",
+    "build:dev": "webpack --config webpack.dev.config.js",
+    "build:prod": "webpack --config webpack.prod.config.js",
+    "start": "ts-node index.ts"
+  },
+  "devDependencies": {
+    "@angular/compiler": "^10",
+    "@angular/compiler-cli": "^10",
+    "@angular/core": "^10",
+    "@types/fs-extra": "^9.0.1",
+    "@types/graceful-fs": "^4.1.3",
+    "@types/node": "^14.6.4",
+    "chalk": "^4.1.0",
+    "commander": "^6.1.0",
+    "fs-extra": "^9.0.1",
+    "graceful-fs": "^4.2.4",
+    "ignore": "^5.1.8",
+    "ng-packagr": "^10.1.0",
+    "rxjs": "^6.6.2",
+    "ts-loader": "^8.0.3",
+    "ts-node": "^9.0.0",
+    "tslib": "^2.0.1",
+    "typescript": "^4.0.2",
+    "webpack": "^4.44.1",
+    "webpack-cli": "^3.3.12",
+    "webpack-merge": "^5.1.4",
+    "webpack-node-externals": "^2.5.2",
+    "zone.js": "~0.10.3"
+  },
+  "$schema": "./node_modules/ng-packagr/package.schema.json",
+  "ngPackage": {
+    "lib": {
+      "entryFile": "public_api.ts"
+    }
+  },
+  "peerDeependencies": {
+    "fs-extra": "^9.0.1",
+    "ignore": "^5.1.8",
+    "rxjs": "^6.6.2"
+  }
+}
