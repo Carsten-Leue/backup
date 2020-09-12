@@ -1,13 +1,12 @@
-#!/usr/bin/env node
-import { green, grey, red } from 'chalk';
-import { Command } from 'commander';
-import { argv } from 'process';
-import { concat, merge, of } from 'rxjs';
-import { ignoreElements, map, takeUntil } from 'rxjs/operators';
+import { green, grey, red } from "chalk";
+import { Command } from "commander";
+import { argv } from "process";
+import { concat, merge, of } from "rxjs";
+import { ignoreElements, map, takeUntil } from "rxjs/operators";
 
-import { version } from './package.json';
-import { sync } from './src/sync';
-import { join } from 'path';
+import { version } from "./package.json";
+import { sync } from "./src/sync";
+import { join } from "path";
 
 const program = new Command();
 program
