@@ -5,16 +5,16 @@
   "repository": "https://github.com/CarstenLeue/backup.git",
   "license": "MIT",
   "author": "Dr. Carsten Leue",
-  "main": "index.js",
   "bin": {
-    "cbt": "bundle.js"
+    "cbt": "index.js"
   },
   "scripts": {
     "build": "npm-run-all build:bundle build:prod",
     "build:bundle": "ng-packagr -p package.json",
+    "build:copy": "cpx index.js ./dist",
     "build:dev": "webpack --config webpack.dev.config.js",
     "build:prod": "webpack --config webpack.prod.config.js",
-    "clean": "rimraf dist",
+    "clean": "rimraf ./dist",
     "start": "ts-node index.ts"
   },
   "devDependencies": {
@@ -26,6 +26,7 @@
     "@types/node": "^14.6.4",
     "chalk": "^4.1.0",
     "commander": "^6.1.0",
+    "cpx": "^1.5.0",
     "fs-extra": "^9.0.1",
     "graceful-fs": "^4.2.4",
     "ignore": "^5.1.8",
