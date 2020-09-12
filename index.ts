@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { green, grey, red } from 'chalk';
 import { Command } from 'commander';
 import { argv } from 'process';
