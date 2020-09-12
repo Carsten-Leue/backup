@@ -9,7 +9,7 @@
     "cbt": "index.js"
   },
   "scripts": {
-    "build": "npm-run-all build:bundle build:prod",
+    "build": "npm-run-all build:bundle build:prod build:copy",
     "build:bundle": "ng-packagr -p package.json",
     "build:copy": "cpx index.js ./dist",
     "build:dev": "webpack --config webpack.dev.config.js",
