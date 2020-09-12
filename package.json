@@ -1,6 +1,7 @@
 {
-  "name": "carstens-backup-tool",
+  "name": "@carsten-leue/backup",
   "version": "1.0.0",
+  "private": false,
   "repository": "https://github.com/CarstenLeue/backup.git",
   "license": "MIT",
   "author": "Dr. Carsten Leue",
@@ -13,6 +14,7 @@
     "build:bundle": "ng-packagr -p package.json",
     "build:dev": "webpack --config webpack.dev.config.js",
     "build:prod": "webpack --config webpack.prod.config.js",
+    "clean": "rimraf dist",
     "start": "ts-node index.ts"
   },
   "devDependencies": {
@@ -29,6 +31,7 @@
     "ignore": "^5.1.8",
     "ng-packagr": "^10.1.0",
     "npm-run-all": "^4.1.5",
+    "rimraf": "^3.0.2",
     "rxjs": "^6.6.2",
     "ts-loader": "^8.0.3",
     "ts-node": "^9.0.0",
@@ -39,6 +42,9 @@
     "webpack-merge": "^5.1.4",
     "webpack-node-externals": "^2.5.2",
     "zone.js": "~0.10.3"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "$schema": "./node_modules/ng-packagr/package.schema.json",
   "ngPackage": {
