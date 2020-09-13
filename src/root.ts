@@ -1,32 +1,10 @@
-import { readdir } from 'graceful-fs';
-import { bindNodeCallback, Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
-
 /** Scripts to handle root level folders */
 
-const rxReadDir = bindNodeCallback<string, string[]>(readdir);
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2}:\d{2}.\d{3})Z$/;
 
-function cmpTuple([nameLeft, dateLeft]: [string, number], [nameRight, dateRight]: [string, number]) {
-  return dateLeft < dateRight ? +1 : dateLeft > dateRight ? -1 : 0;
-}
-
-const toFolderName = (date: Date): string =>
-  date.toISOString().replace(/\:/g, '_');
-
-const fromFolderName = (name: string): Date =>
-  new Date(name.replace(/_/g, ':'));
+const toFolderName = (date: Date): string[] => {
+  const [_, year, month, day, suffix] = ISO_DATE.exec(date.toISOString());
+  return [year, month, day, suffix.replace(/:/g, ".")];
+};
 
 export const newRootDir = () => toFolderName(new Date());
-
-const makePair = (name: string, date: number): [string, number] => [name, date];
-
-export const latestRootDir = (rootFolder: string): Observable<string> =>
-  rxReadDir(rootFolder).pipe(
-    map((names) =>
-      names
-        .map((name) => makePair(name, fromFolderName(name).getTime()))
-        .filter(([name, date]) => !Number.isNaN(date))
-    ),
-    map((tuples) => tuples.sort(cmpTuple)),
-    map(([[name]]) => name)
-  );

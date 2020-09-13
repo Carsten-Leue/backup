@@ -1,6 +1,7 @@
-import { copy, move } from 'fs-extra';
-import { mkdir, readdir, stat, Stats } from 'graceful-fs';
-import { join } from 'path';
+import { copy, move } from "fs-extra";
+import { mkdir, readdir, stat, Stats } from "graceful-fs";
+import ignore, { Ignore } from "ignore";
+import { join } from "path";
 import {
   bindNodeCallback,
   combineLatest,
@@ -10,16 +11,13 @@ import {
   Observable,
   Observer,
   of,
-  queueScheduler,
-  SchedulerLike,
   Subject,
   UnaryFunction,
-} from 'rxjs';
-import { catchError, mapTo, mergeMap, mergeMapTo, filter } from 'rxjs/operators';
-import ignore, { Ignore } from 'ignore'
+} from "rxjs";
+import { catchError, mapTo, mergeMap, mergeMapTo } from "rxjs/operators";
 
-import { createMkdirp } from './mkdir';
-import { newRootDir } from './root';
+import { createMkdirp } from "./mkdir";
+import { newRootDir } from "./root";
 
 const rxReadDir = bindNodeCallback<string, string[]>(readdir);
 const rxStats = bindNodeCallback<string, Stats>(stat);
@@ -53,8 +51,7 @@ function doSync(
   mkdirp: UnaryFunction<string, Observable<string>>,
   stdout$: Observer<string[]>,
   stderr$: Observer<string>,
-  ign: Ignore,
-  scheduler: SchedulerLike  
+  ign: Ignore
 ): Observable<Path> {
   // make a filter
   const ignFilter = ign.createFilter();
@@ -119,7 +116,7 @@ function doSync(
     const statL$ = rxStats(join(src, ...rel));
     const statR$ = rxStats(join(dst, ...rel));
     // execute
-    return combineLatest([statL$, statR$], scheduler).pipe(
+    return combineLatest([statL$, statR$]).pipe(
       mergeMap(([statL, statR]) => {
         // we need to iterate into directories
         if (statL.isDirectory() && statR.isDirectory()) {
@@ -185,7 +182,7 @@ function doSync(
       result.push(backup([...rel, r[idxR++]]));
     }
     // combine all
-    return result.length == 0 ? EMPTY : merge(...result, scheduler);
+    return result.length == 0 ? EMPTY : merge(...result);
   }
 
   const syncRecurse = (rel: Path): Observable<Path> => {
@@ -194,10 +191,12 @@ function doSync(
     // source path
     const bOk = rel.length === 0 || ignFilter(join(...rel));
     // execute
-    return bOk ? combineLatest(
-      [rxSafeReadDir(join(src, ...rel)), rxSafeReadDir(join(dst, ...rel))],
-      scheduler
-    ).pipe(mergeMap(([left, right]) => syncChildren(rel, left, right))) : EMPTY;
+    return bOk
+      ? combineLatest([
+          rxSafeReadDir(join(src, ...rel)),
+          rxSafeReadDir(join(dst, ...rel)),
+        ]).pipe(mergeMap(([left, right]) => syncChildren(rel, left, right)))
+      : EMPTY;
   };
 
   // start with the root folder
@@ -208,24 +207,18 @@ const internalSync = (
   src: string,
   dst: string,
   bkg: string,
-  mkdirp: UnaryFunction<string, Observable<string>>,
-  scheduler: SchedulerLike
+  mkdirp: UnaryFunction<string, Observable<string>>
 ): Sync => {
   // the ignore files
   const ign: Ignore = ignore();
-  ign.add('node_modules');
-  ign.add('.git');
+  ign.add("node_modules");
+  ign.add(".git");
   // the subjects
   const stdout$ = new Subject<string[]>();
   const stderr$ = new Subject<string>();
   // the files
-  const file$ = combineLatest(
-    [mkdirp(src), mkdirp(dst), mkdirp(bkg)],
-    scheduler
-  ).pipe(
-    mergeMap(([s, d, b]) =>
-      doSync(s, d, b, mkdirp, stdout$, stderr$, ign, scheduler)
-    )
+  const file$ = combineLatest([mkdirp(src), mkdirp(dst), mkdirp(bkg)]).pipe(
+    mergeMap(([s, d, b]) => doSync(s, d, b, mkdirp, stdout$, stderr$, ign))
   );
   // ok
   return { file$, stdout$, stderr$ };
@@ -235,7 +228,7 @@ export function sync(src: string, root: string): Sync {
   // make sure to create the directories
   const mkdirp = createMkdirp();
   const dst = join(root, CURRENT);
-  const bkg = join(root, newRootDir());
+  const bkg = join(root, ...newRootDir());
   // fallback
-  return internalSync(src, dst, bkg, mkdirp, queueScheduler);
+  return internalSync(src, dst, bkg, mkdirp);
 }
