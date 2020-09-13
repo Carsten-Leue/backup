@@ -1,31 +1,16 @@
-import { copy, move } from "fs-extra";
-import { mkdir, readdir, stat, Stats } from "graceful-fs";
-import ignore, { Ignore } from "ignore";
-import { join } from "path";
-import {
-  bindNodeCallback,
-  combineLatest,
-  EMPTY,
-  from,
-  merge,
-  Observable,
-  Observer,
-  of,
-  Subject,
-  UnaryFunction,
-} from "rxjs";
-import { catchError, mapTo, mergeMap, mergeMapTo } from "rxjs/operators";
+import { MakeDirectoryOptions, mkdir, PathLike, readdir, stat, Stats } from 'graceful-fs';
+import ignore, { Ignore } from 'ignore';
+import { join } from 'path';
+import { bindNodeCallback, combineLatest, EMPTY, from, merge, Observable, Observer, of, Subject } from 'rxjs';
+import { catchError, mergeMap, mergeMapTo } from 'rxjs/operators';
 
-import { createMkdirp } from "./mkdir";
-import { newRootDir } from "./root";
+import { Backend, Path } from './backend';
+import { fsBackend } from './fs.backend';
+import { newRootDir } from './root';
 
 const rxReadDir = bindNodeCallback<string, string[]>(readdir);
 const rxStats = bindNodeCallback<string, Stats>(stat);
-const rxCopy = bindNodeCallback(copy);
-const rxMkdir = bindNodeCallback(mkdir);
-const rxMove = bindNodeCallback(move);
-
-export type Path = string[];
+const rxMkdir = bindNodeCallback<PathLike, MakeDirectoryOptions, string>(mkdir);
 
 const CURRENT = "current";
 
@@ -44,17 +29,28 @@ export interface Sync {
   stderr$: Observable<string>;
 }
 
+const RECURSIVE: MakeDirectoryOptions = { recursive: true };
+const FLAT: MakeDirectoryOptions = { recursive: false };
+
 function doSync(
   src: string,
   dst: string,
-  bkg: string,
-  mkdirp: UnaryFunction<string, Observable<string>>,
+  backend: Backend,
   stdout$: Observer<string[]>,
   stderr$: Observer<string>,
   ign: Ignore
 ): Observable<Path> {
+  const { copy, move } = backend;
+
   // make a filter
   const ignFilter = ign.createFilter();
+
+  // helper function to test
+  const accept = (rel: Path): boolean => {
+    const bOk = rel.length === 0 || ignFilter(join(...rel));
+    stdout$.next([bOk ? "accept" : "reject", ...rel]);
+    return bOk;
+  };
 
   const copyDeep = (rel: Path): Observable<Path> =>
     rxSafeReadDir(join(src, ...rel)).pipe(
@@ -63,11 +59,11 @@ function doSync(
         rxStats(join(src, ...rel, child)).pipe(
           mergeMap((childStats) =>
             childStats.isDirectory()
-              ? rxMkdir(join(dst, ...rel, child)).pipe(
+              ? rxMkdir(join(dst, ...rel, child), FLAT).pipe(
                   mergeMapTo(copyDeep([...rel, child]))
                 )
               : childStats.isFile()
-              ? copyFlat([...rel, child])
+              ? copy([...rel, child])
               : EMPTY
           ),
           catchError((error) => {
@@ -78,35 +74,24 @@ function doSync(
       )
     );
 
-  const copyFlat = (rel: Path): Observable<Path> =>
-    rxCopy(join(src, ...rel), join(dst, ...rel)).pipe(mapTo(rel));
-
   const copyFileOrDir = (bFile: boolean, rel: Path): Observable<Path> =>
     bFile
-      ? copyFlat(rel)
-      : rxMkdir(join(dst, ...rel)).pipe(mergeMap(() => copyDeep(rel)));
-
-  const backup = (rel: Path): Observable<Path> => {
-    // log this
-    stdout$.next(["Backup", ...rel]);
-    // dispatch
-    return mkdirp(join(bkg, ...rel.slice(0, -1))).pipe(
-      mergeMap(() => rxMove(join(dst, ...rel), join(bkg, ...rel))),
-      mapTo(rel)
-    );
-  };
+      ? copy(rel)
+      : rxMkdir(join(dst, ...rel), FLAT).pipe(mergeMap(() => copyDeep(rel)));
 
   const syncNew = (rel: Path): Observable<Path> => {
     // log this
     stdout$.next(["New", ...rel]);
     // dispatch
-    return rxStats(join(src, ...rel)).pipe(
-      mergeMap((stat) => copyFileOrDir(stat.isFile(), rel)),
-      catchError((error) => {
-        stderr$.next(`Error: ${error}`);
-        return EMPTY;
-      })
-    );
+    return accept(rel)
+      ? rxStats(join(src, ...rel)).pipe(
+          mergeMap((stat) => copyFileOrDir(stat.isFile(), rel)),
+          catchError((error) => {
+            stderr$.next(`Error: ${error}`);
+            return EMPTY;
+          })
+        )
+      : EMPTY;
   };
 
   function syncSingle(rel: Path): Observable<Path> {
@@ -116,23 +101,25 @@ function doSync(
     const statL$ = rxStats(join(src, ...rel));
     const statR$ = rxStats(join(dst, ...rel));
     // execute
-    return combineLatest([statL$, statR$]).pipe(
-      mergeMap(([statL, statR]) => {
-        // we need to iterate into directories
-        if (statL.isDirectory() && statR.isDirectory()) {
-          // recurse
-          return syncRecurse(rel);
-        }
-        // we need to check if files are identical
-        if (statL.isFile() && statR.isFile() && isCurrent(statL, statR)) {
-          return EMPTY;
-        }
-        // copy source to target location
-        return backup(rel).pipe(
-          mergeMap(() => copyFileOrDir(statL.isFile(), rel))
-        );
-      })
-    );
+    return accept(rel)
+      ? combineLatest([statL$, statR$]).pipe(
+          mergeMap(([statL, statR]) => {
+            // we need to iterate into directories
+            if (statL.isDirectory() && statR.isDirectory()) {
+              // recurse
+              return syncRecurse(rel);
+            }
+            // we need to check if files are identical
+            if (statL.isFile() && statR.isFile() && isCurrent(statL, statR)) {
+              return EMPTY;
+            }
+            // copy source to target location
+            return move(rel).pipe(
+              mergeMap(() => copyFileOrDir(statL.isFile(), rel))
+            );
+          })
+        )
+      : EMPTY;
   }
 
   function syncChildren(
@@ -169,7 +156,7 @@ function doSync(
         idxL++;
       } else {
         // dst is extra, move it
-        result.push(backup([...rel, nameR]));
+        result.push(move([...rel, nameR]));
         idxR++;
       }
     }
@@ -179,7 +166,7 @@ function doSync(
     }
     // handle extra target
     while (idxR < lenR) {
-      result.push(backup([...rel, r[idxR++]]));
+      result.push(move([...rel, r[idxR++]]));
     }
     // combine all
     return result.length == 0 ? EMPTY : merge(...result);
@@ -188,10 +175,8 @@ function doSync(
   const syncRecurse = (rel: Path): Observable<Path> => {
     // log this
     stdout$.next(["Recurse", ...rel]);
-    // source path
-    const bOk = rel.length === 0 || ignFilter(join(...rel));
     // execute
-    return bOk
+    return accept(rel)
       ? combineLatest([
           rxSafeReadDir(join(src, ...rel)),
           rxSafeReadDir(join(dst, ...rel)),
@@ -203,12 +188,7 @@ function doSync(
   return syncRecurse([]);
 }
 
-const internalSync = (
-  src: string,
-  dst: string,
-  bkg: string,
-  mkdirp: UnaryFunction<string, Observable<string>>
-): Sync => {
+const internalSync = (src: string, dst: string, backend: Backend): Sync => {
   // the ignore files
   const ign: Ignore = ignore();
   ign.add("node_modules");
@@ -217,18 +197,18 @@ const internalSync = (
   const stdout$ = new Subject<string[]>();
   const stderr$ = new Subject<string>();
   // the files
-  const file$ = combineLatest([mkdirp(src), mkdirp(dst), mkdirp(bkg)]).pipe(
-    mergeMap(([s, d, b]) => doSync(s, d, b, mkdirp, stdout$, stderr$, ign))
+  const file$ = rxMkdir(dst, RECURSIVE).pipe(
+    mergeMap(() => doSync(src, dst, backend, stdout$, stderr$, ign))
   );
   // ok
   return { file$, stdout$, stderr$ };
 };
 
-export function sync(src: string, root: string): Sync {
+export function sync(src: string, root: string, backend?: Backend): Sync {
   // make sure to create the directories
-  const mkdirp = createMkdirp();
   const dst = join(root, CURRENT);
-  const bkg = join(root, ...newRootDir());
   // fallback
-  return internalSync(src, dst, bkg, mkdirp);
+  const bkg = backend || fsBackend(src, dst, join(root, ...newRootDir()));
+  // fallback
+  return internalSync(src, dst, bkg);
 }
